@@ -18,7 +18,10 @@ public partial class LoginWindow : Window
         InitializeComponent();
         Loaded += async (_, _) =>
         {
-            await WebView.EnsureCoreWebView2Async();
+            // --disable-gpu: лечит «белый экран» WebView2 на части видеокарт/виртуалок
+            var options = new CoreWebView2EnvironmentOptions("--disable-gpu");
+            var env = await CoreWebView2Environment.CreateAsync(null, null, options);
+            await WebView.EnsureCoreWebView2Async(env);
             WebView.NavigationCompleted += OnNavigated;
             WebView.Source = new Uri($"{ApiConfig.BaseUrl}/login");
         };
