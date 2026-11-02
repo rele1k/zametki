@@ -5,10 +5,6 @@ using Zametki.Services;
 
 namespace Zametki;
 
-/// <summary>
-/// Окно входа: WebView2 со страницей Kimi. После редиректа на корень сайта
-/// cookie переносятся в общее хранилище сессии.
-/// </summary>
 public partial class LoginWindow : Window
 {
     private bool _handled;
@@ -18,17 +14,41 @@ public partial class LoginWindow : Window
         InitializeComponent();
         Loaded += async (_, _) =>
         {
-            // --disable-gpu: лечит «белый экран» WebView2 на части видеокарт/виртуалок
-            var options = new CoreWebView2EnvironmentOptions("--disable-gpu");
-            var env = await CoreWebView2Environment.CreateAsync(null, null, options);
-            await WebView.EnsureCoreWebView2Async(env);
-            WebView.NavigationCompleted += OnNavigated;
-            WebView.Source = new Uri($"{ApiConfig.BaseUrl}/login");
+            try
+            {
+                StatusText.Text = "WebView2: " + CoreWebView2Environment.GetAvailableBrowserVersionString();
+                var options = new CoreWebView2EnvironmentOptions("--disable-gpu");
+                var env = await CoreWebView2Environment.CreateAsync(null, null, options);
+                await WebView.EnsureCoreWebView2Async(env);
+
+                WebView.CoreWebView2.NavigationStarting += (_, args) =>
+                {
+                    StatusText.Text = "Загрузка…";
+                    UrlText.Text = args.Uri;
+                };
+                WebView.NavigationCompleted += OnNavigated;
+                WebView.CoreWebView2.ProcessFailed += (_, args) =>
+                {
+                    StatusText.Text = "Сбой процесса WebView2: " + args.ProcessFailedKind;
+                };
+
+                WebView.Source = new Uri($"{ApiConfig.BaseUrl}/login");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка инициализации WebView2:\n" + ex.Message,
+                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         };
     }
 
     private async void OnNavigated(object? sender, CoreWebView2NavigationCompletedEventArgs e)
     {
+        StatusText.Text = e.IsSuccess
+            ? "Страница загружена"
+            : "ОШИБКА ЗАГРУЗКИ: " + e.WebErrorStatus;
+        UrlText.Text = WebView.Source?.ToString() ?? "";
+
         if (_handled || !e.IsSuccess) return;
 
         var baseOrigin = new Uri(ApiConfig.BaseUrl).GetLeftPart(UriPartial.Authority).TrimEnd('/');
