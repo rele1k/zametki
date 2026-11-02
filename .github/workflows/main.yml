@@ -1,46 +1,28 @@
-name: Сборка установщика Windows
+name: Сборка приложения Windows
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: windows-2022
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Подключить MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Установить .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
 
-      - name: Убедиться, что в Visual Studio есть MAUI
+      - name: Собрать приложение
         shell: pwsh
         run: |
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vsPath = & $vswhere -latest -property installationPath
-          $hasMaui = & $vswhere -latest -requires Microsoft.VisualStudio.Workload.NetCrossPlat -property installationPath
-          if (-not $hasMaui) {
-            Write-Host "Добавляю MAUI workload в Visual Studio (это долго, 10-15 минут)..."
-            & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe" modify `
-              --installPath "$vsPath" `
-              --add Microsoft.VisualStudio.Workload.NetCrossPlat `
-              --add Microsoft.VisualStudio.ComponentGroup.MSIX.Packaging `
-              --quiet --wait --norestart
-          } else {
-            Write-Host "MAUI уже установлен: $vsPath"
-          }
+          $proj = Get-ChildItem -Recurse -Filter *.csproj | Select-Object -First 1
+          if (-not $proj) { Write-Error "Zametki.csproj не найден. Загрузите файлы проекта." }
+          dotnet publish $proj.FullName -c Release -r win-x64 --self-contained true -o out
 
-      - name: Собрать установщик (MSIX)
-        shell: pwsh
-        run: |
-          msbuild Zametki.csproj /restore /p:Configuration=Release `
-            /p:TargetFramework=net8.0-windows10.0.19041.0 `
-            /p:WindowsPackageType=Msix /p:GenerateAppxPackageOnBuild=true `
-            /p:RuntimeIdentifierOverride=win10-x64 /v:m
-
-      - name: Отдать готовый файл
+      - name: Отдать готовое приложение
         uses: actions/upload-artifact@v4
         with:
-          name: Zametki-Installer
-          path: |
-            **/AppPackages/**/*.msix
-            **/AppPackages/**/*.cer
+          name: Zametki-Windows
+          path: out
