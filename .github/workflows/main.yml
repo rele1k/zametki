@@ -1,0 +1,46 @@
+name: Сборка установщика Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Подключить MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Убедиться, что в Visual Studio есть MAUI
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -property installationPath
+          $hasMaui = & $vswhere -latest -requires Microsoft.VisualStudio.Workload.NetCrossPlat -property installationPath
+          if (-not $hasMaui) {
+            Write-Host "Добавляю MAUI workload в Visual Studio (это долго, 10-15 минут)..."
+            & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe" modify `
+              --installPath "$vsPath" `
+              --add Microsoft.VisualStudio.Workload.NetCrossPlat `
+              --add Microsoft.VisualStudio.ComponentGroup.MSIX.Packaging `
+              --quiet --wait --norestart
+          } else {
+            Write-Host "MAUI уже установлен: $vsPath"
+          }
+
+      - name: Собрать установщик (MSIX)
+        shell: pwsh
+        run: |
+          msbuild Zametki.csproj /restore /p:Configuration=Release `
+            /p:TargetFramework=net8.0-windows10.0.19041.0 `
+            /p:WindowsPackageType=Msix /p:GenerateAppxPackageOnBuild=true `
+            /p:RuntimeIdentifierOverride=win10-x64 /v:m
+
+      - name: Отдать готовый файл
+        uses: actions/upload-artifact@v4
+        with:
+          name: Zametki-Installer
+          path: |
+            **/AppPackages/**/*.msix
+            **/AppPackages/**/*.cer
