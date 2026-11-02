@@ -7,8 +7,8 @@ namespace Zametki.Services;
 /// </summary>
 public static class ApiConfig
 {
-    public const string BaseUrl = "https://ВАШ-АДРЕС.ok.kimi.link";
+    public const string BaseUrl = https://qiwlyzcahmvc4.kimi.pro;
 
     public static bool IsConfigured =>
-        !BaseUrl.Contains("ВАШ-АДРЕС", StringComparison.OrdinalIgnoreCase);
+        !BaseUrl.Contains(https://qiwlyzcahmvc4.kimi.pro, StringComparison.OrdinalIgnoreCase);
 }
